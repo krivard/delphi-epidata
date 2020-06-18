@@ -64,6 +64,9 @@ class CovidcastMetaTests(unittest.TestCase):
               'mean_value': 15,
               'stdev_value': 5,
               'last_update': 123,
+              'max_issue':2,
+              'min_lag':0,
+              'max_lag':0,
             })
             for tv in (1, 2):
               for gv, v in zip(('geo1', 'geo2'), (10, 20)):
@@ -75,7 +78,18 @@ class CovidcastMetaTests(unittest.TestCase):
     response.raise_for_status()
     response = response.json()
 
+    self.maxDiff=None
     # assert that the right data came back
+    newline = "\n"
+    self.assertEqual(len(response['epidata']),len(expected),
+                     f"""
+Expected:
+{newline.join(str(x) for x in sorted( (y['data_source'],y['signal'],y['time_type'],y['geo_type']) for y in expected ))}
+
+Got:
+{newline.join(str(x) for x in sorted( (y['data_source'],y['signal'],y['time_type'],y['geo_type']) for y in response['epidata'] ))}
+""")
+      
     self.assertEqual(response, {
       'result': 1,
       'epidata': expected,
