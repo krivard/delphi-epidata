@@ -94,27 +94,61 @@ class Database:
   def get_data_stdev_across_locations(self, max_day):
     """
     Return the standard deviation of daily data over all locations, for all
-    (source, signal, geo_type) tuples.
+    (source, signal, geo_type) tuples, only taking rows with latest issue
+    per key into account.
 
     `max_day`: base the standard deviation on data up to, and including, but
       not after, this day (e.g. for a stable result over time)
     """
 
-    sql = '''
+    latest_issue_sql = '''
+      SELECT 
+        `source`,
+        `signal`,
+        `time_type`,
+        `geo_type`,
+        `geo_value`,
+        `time_value`,
+        `value`
+      FROM
+      (
+        SELECT
+          `source`,
+          `signal`,
+          `time_type`,
+          `geo_type`,
+          `geo_value`,
+          `time_value`,
+          MAX(`issue`) AS `issue`
+        FROM `covidcast`
+        WHERE
+          `time_type` = 'day' AND
+          `time_value` <= %s
+        GROUP BY
+          `source`,
+          `signal`,
+          `time_type`,
+          `geo_type`,
+          `geo_value`,
+          `time_value`
+      ) b
+      LEFT JOIN `covidcast` a
+      USING (`source`, `signal`, `time_type`, `geo_type`, `geo_value`, `time_value`, `issue`)
+    '''
+    sql = f'''
       SELECT
         `source`,
         `signal`,
         `geo_type`,
         COALESCE(STD(`value`), 0) AS `aggregate_stdev`
       FROM
-        `covidcast`
-      WHERE
-        `time_type` = 'day' AND
-        `time_value` <= %s
+      (
+        {latest_issue_sql}
+      ) AS `sub_query`
       GROUP BY
         `source`,
         `signal`,
-        `geo_type`
+        `geo_type`;
     '''
 
     args = (max_day,)
